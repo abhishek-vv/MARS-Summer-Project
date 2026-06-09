@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import Peer from 'peerjs';
-import { 
-  Zap, 
-  Shield, 
-  RefreshCw, 
-  Trash2, 
-  AlertCircle, 
-  Download, 
+import {
+  Zap,
+  Shield,
+  RefreshCw,
+  Trash2,
+  AlertCircle,
+  Download,
   FileCheck,
   Globe
 } from 'lucide-react';
@@ -16,19 +16,19 @@ import DropZone from './components/DropZone';
 import ConnectionStatus from './components/ConnectionStatus';
 import TransferProgress from './components/TransferProgress';
 
-import { 
-  generateAESKey, 
-  exportKeyToHex, 
-  importKeyFromHex, 
-  encryptChunk, 
-  decryptChunk, 
-  computeSHA256 
+import {
+  generateAESKey,
+  exportKeyToHex,
+  importKeyFromHex,
+  encryptChunk,
+  decryptChunk,
+  computeSHA256
 } from './utils/crypto';
 
-import { 
-  initDB, 
-  saveChunk, 
-  getAllChunks, 
+import {
+  initDB,
+  saveChunk,
+  getAllChunks,
   deleteDB,
   isOPFSAvailable,
   shouldUseOPFS,
@@ -52,12 +52,12 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const getPeerConfig = () => {
   const url = new URL(BACKEND_URL);
   const secure = url.protocol === 'https:';
-  
+
   let port = url.port;
   if (!port) {
     port = secure ? '443' : '80';
   }
-  
+
   return {
     host: url.hostname,
     port: parseInt(port),
@@ -72,28 +72,28 @@ export default function App() {
   const [role, setRole] = useState('sender'); // 'sender' | 'receiver'
   const [roomId, setRoomId] = useState('');
   const [aesKey, setAesKey] = useState(null);
-  
+
   // File State
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileMetadata, setFileMetadata] = useState(null);
   const [isEncrypting, setIsEncrypting] = useState(false);
-  
+
   // Storage Backend State
   const [useOPFS, setUseOPFS] = useState(false);
   const [opfsHandle, setOpfsHandle] = useState(null);
-  
+
   // Mesh Swarming State
   const [receiverList, setReceiverList] = useState([]);
   const [receiverIndex, setReceiverIndex] = useState(-1);
   const [totalReceivers, setTotalReceivers] = useState(1);
   const [peerConnections, setPeerConnections] = useState({}); // peerId -> connection object
-  
+
   // Connection State
   const [serverConnected, setServerConnected] = useState(false);
   const [peerStatus, setPeerStatus] = useState('idle'); // 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
   const [transferStatus, setTransferStatus] = useState('idle'); // 'idle' | 'encrypting' | 'connecting' | 'transferring' | 'processing' | 'completed' | 'failed' | 'hash_mismatch'
   const [peerId, setPeerId] = useState('');
-  
+
   // Progress Stats
   const [bytesTransferred, setBytesTransferred] = useState(0);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -111,7 +111,7 @@ export default function App() {
   const startTimeRef = useRef(0);
   const activeChunksReceivedRef = useRef(new Set());
   const metadataRef = useRef(null);
-  
+
   // Check URL path on mount to determine if this is a receiver room
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
@@ -125,12 +125,12 @@ export default function App() {
       setRoomId(urlRoomId);
       setTransferStatus('connecting');
       setPeerStatus('connecting');
-      
+
       // Extract cryptographic key from URL hash
-      const keyFromHash = window.location.hash.startsWith('#key=') 
-        ? window.location.hash.substring(5) 
+      const keyFromHash = window.location.hash.startsWith('#key=')
+        ? window.location.hash.substring(5)
         : null;
-        
+
       if (keyFromHash) {
         importKeyFromHex(keyFromHash)
           .then(key => {
@@ -176,7 +176,7 @@ export default function App() {
       // 1. Hash file
       const fileBuffer = await file.arrayBuffer();
       const fileHash = await computeSHA256(fileBuffer);
-      
+
       // 2. Generate E2E Crypto Key
       const key = await generateAESKey();
       const hexKey = await exportKeyToHex(key);
@@ -203,7 +203,10 @@ export default function App() {
       setTransferStatus('connecting'); // Show connecting state while waiting for receiver
 
       // 5. Connect to Socket Signaling Server
-      const socket = io(BACKEND_URL);
+      const socket = io(BACKEND_URL, {
+        transports: ['polling'],
+        reconnection: true
+      });
       socketRef.current = socket;
 
       // 6. Connect to local PeerJS server (dynamic ID)
@@ -218,19 +221,19 @@ export default function App() {
 
         // Register room on server once we have our Peer ID
         if (socket.connected) {
-          socket.emit('create-room', { 
-            roomId: generatedRoomId, 
-            peerId: id, 
-            metadata 
+          socket.emit('create-room', {
+            roomId: generatedRoomId,
+            peerId: id,
+            metadata
           });
         } else {
           socket.on('connect', () => {
             setServerConnected(true);
             console.log('Sender socket connected:', socket.id);
-            socket.emit('create-room', { 
-              roomId: generatedRoomId, 
-              peerId: id, 
-              metadata 
+            socket.emit('create-room', {
+              roomId: generatedRoomId,
+              peerId: id,
+              metadata
             });
           });
         }
@@ -256,7 +259,7 @@ export default function App() {
         connRef.current = conn;
         setPeerStatus('connected');
         setTransferStatus('transferring');
-        
+
         conn.on('open', () => {
           // Trigger file transfer
           startSendingFile(conn, file, metadata, key);
@@ -296,7 +299,10 @@ export default function App() {
   // Initialize Socket and PeerJS for Receiver
   const initializeReceiver = (urlRoomId, key) => {
     // 1. Connect to Socket Signaling Server
-    const socket = io(BACKEND_URL);
+    const socket = io(BACKEND_URL, {
+      transports: ['polling'],
+      reconnection: true
+    });
     socketRef.current = socket;
 
     // 2. Connect to local PeerJS server (dynamic ID)
@@ -307,20 +313,20 @@ export default function App() {
     peer.on('open', (id) => {
       setPeerId(id);
       console.log('Receiver PeerJS registered with ID:', id);
-      
+
       // Join room via socket
       if (socket.connected) {
-        socket.emit('join-room', { 
-          roomId: urlRoomId, 
-          peerId: id 
+        socket.emit('join-room', {
+          roomId: urlRoomId,
+          peerId: id
         });
       } else {
         socket.on('connect', () => {
           setServerConnected(true);
           console.log('Receiver socket connected:', socket.id);
-          socket.emit('join-room', { 
-            roomId: urlRoomId, 
-            peerId: id 
+          socket.emit('join-room', {
+            roomId: urlRoomId,
+            peerId: id
           });
         });
       }
@@ -345,12 +351,12 @@ export default function App() {
       console.log('File metadata received:', metadata);
       setFileMetadata(metadata);
       metadataRef.current = metadata;
-      
+
       // Determine if we should use OPFS for large files
       const opfsAvailable = await isOPFSAvailable();
       const shouldUseOPFSStorage = opfsAvailable && shouldUseOPFS(metadata.size);
       setUseOPFS(shouldUseOPFSStorage);
-      
+
       if (shouldUseOPFSStorage) {
         console.log('Using OPFS for large file transfer (>500MB)');
         try {
@@ -376,11 +382,11 @@ export default function App() {
     // Receive sender's dynamic Peer ID from Socket.io, and connect via WebRTC
     socket.on('sender-info', ({ peerId: senderPeerId }) => {
       console.log('Sender info received, connecting to Peer ID:', senderPeerId);
-      
+
       // Connect directly to Sender
-      const conn = peer.connect(senderPeerId, { 
+      const conn = peer.connect(senderPeerId, {
         serialization: 'binary', // Binary data transmission
-        reliable: true 
+        reliable: true
       });
       connRef.current = conn;
 
@@ -548,7 +554,7 @@ export default function App() {
     let currentChunk = 0;
     let isPausedForBuffer = false;
     const totalChunks = metadata.totalChunks;
-    
+
     startStatsCalculator();
 
     const sendNext = () => {
@@ -572,17 +578,17 @@ export default function App() {
       reader.onload = async (e) => {
         try {
           const rawBuffer = e.target.result;
-          
+
           // Encrypt raw ArrayBuffer chunk (returns iv + ciphertext)
           const encryptedBuffer = await encryptChunk(rawBuffer, key);
-          
+
           // Package binary packet: [4-byte ChunkIndex][EncryptedPayload]
           const packet = new Uint8Array(4 + encryptedBuffer.byteLength);
           new DataView(packet.buffer).setUint32(0, currentChunk, true);
           packet.set(new Uint8Array(encryptedBuffer), 4);
 
           conn.send(packet.buffer);
-          
+
           // Track progress using original unencrypted size
           currentChunk++;
           const bytesSent = Math.min(file.size, currentChunk * CHUNK_SIZE);
@@ -620,7 +626,7 @@ export default function App() {
   const handleReceivedChunk = async (data, room, metadata, key) => {
     try {
       let buffer = data;
-      
+
       // Handle different data types from PeerJS binary mode
       if (data instanceof Blob) {
         buffer = await data.arrayBuffer();
@@ -651,7 +657,7 @@ export default function App() {
       // Track progress
       activeChunksReceivedRef.current.add(chunkIndex);
       const chunksCount = activeChunksReceivedRef.current.size;
-      
+
       // Calculate unencrypted bytes received (encrypted payload overhead is exactly 28 bytes)
       const chunkOriginalSize = encryptedPayload.byteLength - 28;
       setBytesTransferred(prev => {
@@ -665,7 +671,7 @@ export default function App() {
         stopStatsCalculator();
         setTransferStatus('processing');
         setPeerStatus('idle'); // Stop showing connected as we assemble
-        
+
         await assembleAndDownloadFile(room, metadata, key);
       }
     } catch (err) {
@@ -678,7 +684,7 @@ export default function App() {
   const assembleAndDownloadFile = async (room, metadata, key) => {
     try {
       let encryptedChunks;
-      
+
       // Retrieve chunks from appropriate backend
       if (useOPFS && opfsHandle) {
         console.log('Reading chunks from OPFS...');
@@ -687,7 +693,7 @@ export default function App() {
         console.log('Reading chunks from IndexedDB...');
         encryptedChunks = await getAllChunks(room);
       }
-      
+
       const decryptedBuffers = [];
       let totalDecryptedSize = 0;
 
@@ -725,10 +731,10 @@ export default function App() {
         a.download = metadata.name;
         document.body.appendChild(a);
         a.click();
-        
+
         document.body.removeChild(a);
         URL.revokeObjectURL(downloadUrl);
-        
+
         // Clean up storage
         if (useOPFS) {
           await deleteOPFS(room);
@@ -759,11 +765,11 @@ export default function App() {
   const startStatsCalculator = () => {
     startTimeRef.current = Date.now();
     bytesLastIntervalRef.current = 0;
-    
+
     speedIntervalRef.current = setInterval(() => {
       setBytesTransferred(currBytes => {
         const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000;
-        
+
         if (elapsedSeconds > 0) {
           const speed = currBytes / elapsedSeconds; // B/s
           setSpeedMBs(speed / (1024 * 1024));
@@ -793,7 +799,7 @@ export default function App() {
     console.log(`Connection dropped by ${disconnectedRole}`);
     stopStatsCalculator();
     setPeerStatus('disconnected');
-    
+
     setTransferStatus(prev => {
       if (prev !== 'completed') {
         return 'failed';
@@ -805,7 +811,7 @@ export default function App() {
   // Reset page to upload another file
   const handleReset = async () => {
     stopStatsCalculator();
-    
+
     // Close connections
     if (connRef.current) connRef.current.close();
     if (peerRef.current) peerRef.current.destroy();
@@ -832,7 +838,7 @@ export default function App() {
     setServerConnected(false);
     setErrorMsg('');
     activeChunksReceivedRef.current.clear();
-    
+
     // Clean URL
     window.history.pushState({}, document.title, '/');
   };
@@ -863,7 +869,7 @@ export default function App() {
             <div className="flex-1">
               <h5 className="font-bold text-slate-100 mb-1">An error occurred</h5>
               <p className="text-sm leading-relaxed">{errorMsg}</p>
-              <button 
+              <button
                 onClick={handleReset}
                 className="mt-3 text-xs bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 font-semibold px-4 py-2 rounded-xl transition-all duration-200"
               >
@@ -876,7 +882,7 @@ export default function App() {
         {!errorMsg && (
           <div className="w-full space-y-6">
             {role === 'sender' && transferStatus === 'idle' && (
-              <DropZone 
+              <DropZone
                 onFileSelect={(file) => {
                   setSelectedFile(file);
                   initializeSender(file);
@@ -889,7 +895,7 @@ export default function App() {
 
             {role === 'sender' && selectedFile && transferStatus !== 'idle' && (
               <>
-                <TransferProgress 
+                <TransferProgress
                   role="sender"
                   fileName={selectedFile.name}
                   fileSize={selectedFile.size}
@@ -899,14 +905,14 @@ export default function App() {
                   etaSeconds={etaSeconds}
                   status={transferStatus}
                 />
-                
+
                 {shareLink && (
                   <div className="w-full max-w-2xl mx-auto bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl backdrop-blur-xl space-y-4">
                     <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
                       <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
                       Share Link (Encrypted End-to-End)
                     </label>
-                    
+
                     <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-2xl p-2 pl-4">
                       <span className="text-sm text-slate-400 truncate flex-1 font-mono select-all">
                         {shareLink}
@@ -937,7 +943,7 @@ export default function App() {
             )}
 
             {role === 'receiver' && fileMetadata && (
-              <TransferProgress 
+              <TransferProgress
                 role="receiver"
                 fileName={fileMetadata.name}
                 fileSize={fileMetadata.size}
@@ -978,13 +984,13 @@ export default function App() {
       {/* Connection Bar Footer */}
       <footer className="mt-8 mb-4">
         <div className="bg-slate-900/40 border border-slate-900 rounded-full py-3 px-6 shadow-sm backdrop-blur-md max-w-xl mx-auto">
-          <ConnectionStatus 
-            serverConnected={serverConnected} 
+          <ConnectionStatus
+            serverConnected={serverConnected}
             peerStatus={peerStatus}
             isReceiver={role === 'receiver'}
           />
         </div>
-        
+
         {/* Security badge */}
         <div className="flex justify-center items-center gap-1.5 mt-4 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
           <Shield className="w-3.5 h-3.5 text-indigo-400" />
