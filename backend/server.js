@@ -5,7 +5,9 @@ const { Server } = require('socket.io');
 const { ExpressPeerServer } = require('peer');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://mars-summer-project-git-main-abhishek-vv1.vercel.app/'
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -24,7 +26,7 @@ app.use(peerServer);
 // Mount Socket.io
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: 'https://mars-summer-project-git-main-abhishek-vv1.vercel.app/',
     methods: ['GET', 'POST']
   }
 });
