@@ -46,7 +46,7 @@ import {
 } from './utils/chunkDistributor';
 
 const CHUNK_SIZE = 16384; // 16KB safe chunk size
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5010';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Helper to dynamically parse PeerJS connection details from BACKEND_URL
 const getPeerConfig = () => {
