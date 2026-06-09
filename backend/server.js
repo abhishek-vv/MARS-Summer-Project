@@ -19,7 +19,7 @@ const peerServer = ExpressPeerServer(server, {
   debug: true,
   path: '/peerjs'
 });
-app.use(peerServer);
+app.use('/peerjs', peerServer);
 
 // Mount Socket.io
 const io = new Server(server, {
