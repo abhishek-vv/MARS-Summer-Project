@@ -84,21 +84,12 @@ git clone <repository-url>
 cd p2p-web-share
 ```
 
-### Backend Setup
+### Setup
 ```bash
-cd backend
-npm install
-npm start
-```
-The backend signaling server will start on `http://localhost:5010`
-
-### Frontend Setup (in a new terminal)
-```bash
-cd frontend
-npm install
+npm run install-all
 npm run dev
 ```
-The frontend application will be available at `http://localhost:5173` (or the Vite-specified port)
+The frontend application will be available at `http://localhost:5173` and backend server will start on `http://localhost:5010`
 
 ## 🌐 Usage
 
